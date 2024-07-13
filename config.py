@@ -51,7 +51,7 @@ parser.add_argument('--recons_weight', type=float, default=0.01, help='recons_we
 parser.add_argument('--loop', type=int, default=2)
 parser.add_argument('--freeze_dec', action='store_true', default=False, help='Freeze Decoder for fake samples')
 #############################################################
-parser.add_argument('--result_root', type=str, default='/home/shimingchen/ZSL/FREE/zero-shot-images/result', help='root path for saving checkpoint')
+parser.add_argument('--result_root', type=str, default='/home/LAB/chenlb24/compare_model/FREE/zero-shot-images/result', help='root path for saving checkpoint')
 parser.add_argument('--center_margin', type=float, default=150, help='the margin in the center loss')
 parser.add_argument('--center_weight', type=float, default=0.5, help='the weight for the center loss')
 parser.add_argument('--incenter_weight', type=float, default=0.5, help='the weight for the center loss')

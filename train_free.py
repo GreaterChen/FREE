@@ -192,9 +192,15 @@ def optimize_beta(beta, MI_loss,alpha2=1e-6):
     # return the updated beta value:
     return beta_new
 
+def save_checkpoint(state, filename='checkpoint.pth.tar'):
+    torch.save(state, filename)
+
 
 
 if not os.path.exists(os.path.join(opt.result_root, opt.dataset)):
+    print(opt.result_root)
+    print(opt.dataset)
+    print(os.path.join(opt.result_root, opt.dataset))
     os.makedirs(os.path.join(opt.result_root, opt.dataset))
 
 best_gzsl_acc = 0
@@ -261,14 +267,6 @@ for epoch in range(0,opt.nepoch):
                 Wasserstein_D = criticD_real - criticD_fake
                 D_cost = criticD_fake - criticD_real + gradient_penalty #add Y here and #add vae 
                 optimizerD.step()
-                
-                
-                
-                
-                
-                
-                
-
             gp_sum /= (opt.gammaD*opt.lambda1*opt.critic_iter)
             if (gp_sum > 1.05).sum() > 0:
                 opt.lambda1 *= 1.1
@@ -347,6 +345,16 @@ for epoch in range(0,opt.nepoch):
         best_acc_seen, best_acc_unseen, best_gzsl_acc = gzsl_cls.acc_seen, gzsl_cls.acc_unseen, gzsl_cls.H
         ### torch.save({'netG': netG.state_dict()}, os.path.join(opt.result_root, opt.dataset, 'checkpoint_G.pth.tar'))
         ### torch.save({'netFR': netFR.state_dict()}, os.path.join(opt.result_root, opt.dataset, 'checkpoint_F.pth.tar'))
+        
+        save_checkpoint({
+                'epoch': epoch + 1,
+                'netG_state_dict': netG.state_dict(),
+                'netFR_state_dict': netFR.state_dict(),
+                'optimizerG': optimizerG.state_dict(),
+                'optimizerFR': optimizerFR.state_dict(),
+                'best_gzsl_acc': best_gzsl_acc,
+                'opt': opt,
+            }, filename=os.path.join(opt.result_root, opt.dataset, 'checkpoint_best.pth.tar'))
     print('GZSL: seen=%.3f, unseen=%.3f, h=%.3f' % (gzsl_cls.acc_seen, gzsl_cls.acc_unseen, gzsl_cls.H),end=" ")
         
     if epoch % 10 == 0:
