@@ -4,6 +4,44 @@ This repository contains the reference code for the paper "**FREE: Feature Refin
 ![](images/pipeline.png)
 
 
+## 0. CLB tips
+运行： 
+```bash
+python train_free.py
+```
+跑CUB没问题，但是在ZDFY上发现：
+```python
+def loss_fn(recon_x, x, mean, log_var):
+    BCE = torch.nn.functional.binary_cross_entropy(recon_x+1e-12, x.detach(),reduction='sum')
+    BCE = BCE.sum()/ x.size(0)
+    KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())/ x.size(0)
+    #return (KLD)
+    return (BCE + KLD)
+```
+其中各个变量尺寸：
+```python
+recon x: torch.Size([64,2048])
+x: torch.Size([64,2048])
+mean: torch.Size([64,768])
+log_var: torch.Size([64,768])
+```
+
+这个代码在`optimizer.step()`的时候报错
+```python
+RuntimeError: CUDA error: device-side assert triggered CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect. For debugging consider passing CUDA_LAUNCH_BLOCKING=1. Compile with TORCH_USE_CUDA_DSA to enable device-side assertions。
+```
+参考[这篇文章](https://blog.csdn.net/By_Z0la/article/details/134642425)，具体来说是因为下面这一行有问题。
+```python
+BCE = torch.nn.functional.binary_cross_entropy(recon_x+1e-12, x.detach(),reduction='sum')
+```
+我将其改为了
+```python
+MSE = torch.nn.functional.mse_loss(recon_x, x.detach(), reduction='sum') / x.size(0)
+```
+
+
+其次，需要注意config中--nz需要等于--attSize
+
 ## 1. Preparing Dataset and Model
 Datasets can be download from [Xian et al. (CVPR2017)](https://datasets.d2.mpi-inf.mpg.de/xian/xlsa17.zip) and take them into dir `data`.
 ## Requirements
@@ -39,3 +77,5 @@ If this work is helpful for you, please cite our paper.
 We thank the following repos providing helpful components in our work.
 1. [TF-VAEGAN](https://github.com/akshitac8/tfvaegan)
 2. [cycle-CLSWGAN](https://github.com/rfelixmg/frwgan-eccv18)
+
+

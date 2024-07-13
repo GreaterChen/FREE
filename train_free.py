@@ -89,11 +89,43 @@ if opt.cuda:
     one = one.cuda()
     mone = mone.cuda()
     input_label=input_label.cuda()
+    
+    # MSE = torch.nn.functional.mse_loss(recon_x, x.detach(), reduction='sum') / x.size(0)
+    
+
+optimizer          = optim.Adam(netE.parameters(), lr=opt.lr)
+optimizerD         = optim.Adam(netD.parameters(), lr=opt.lr,betas=(opt.beta1, 0.999))
+optimizerG         = optim.Adam(netG.parameters(), lr=opt.lr,betas=(opt.beta1, 0.999))
+optimizerFR        = optim.Adam(netFR.parameters(), lr=opt.dec_lr, betas=(opt.beta1, 0.999))
+optimizer_center   = optim.Adam(center_criterion.parameters(), lr=opt.lr,betas=(opt.beta1, 0.999))
+
+def load_checkpoint(filepath):
+    checkpoint = torch.load(filepath)
+    netG.load_state_dict(checkpoint['netG_state_dict'])
+    netFR.load_state_dict(checkpoint['netFR_state_dict'])
+    optimizerG.load_state_dict(checkpoint['optimizerG'])
+    optimizerFR.load_state_dict(checkpoint['optimizerFR'])
+    start_epoch = checkpoint['epoch']
+    best_gzsl_acc = checkpoint['best_gzsl_acc']
+    opt = checkpoint['opt']
+    return start_epoch, best_gzsl_acc, opt
+
+
+# Load checkpoint if available
+checkpoint_path = os.path.join(opt.result_root, opt.dataset, 'checkpoint_best_145.pth.tar')
+if os.path.isfile(checkpoint_path):
+    start_epoch, best_gzsl_acc, opt = load_checkpoint(checkpoint_path)
+    print(f"Checkpoint loaded, starting from epoch {start_epoch} with best GZSL accuracy {best_gzsl_acc}")
+else:
+    start_epoch = 0
+    best_gzsl_acc = 0
+    print("No checkpoint found, starting training from scratch")
+
 
 def loss_fn(recon_x, x, mean, log_var):
+    MSE = torch.nn.functional.mse_loss(recon_x, x.detach(), reduction='sum') / x.size(0)
     # BCE = torch.nn.functional.binary_cross_entropy(recon_x+1e-12, x.detach(),reduction='sum')
     # BCE = BCE.sum()/ x.size(0)
-    MSE = torch.nn.functional.mse_loss(recon_x, x.detach(), reduction='sum') / x.size(0)
     KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())/ x.size(0)
     #return (KLD)
     return (MSE + KLD)
@@ -135,11 +167,6 @@ def generate_syn_feature(generator,classes, attribute,num):
     return syn_feature, syn_label
 
 
-optimizer          = optim.Adam(netE.parameters(), lr=opt.lr)
-optimizerD         = optim.Adam(netD.parameters(), lr=opt.lr,betas=(opt.beta1, 0.999))
-optimizerG         = optim.Adam(netG.parameters(), lr=opt.lr,betas=(opt.beta1, 0.999))
-optimizerFR      = optim.Adam(netFR.parameters(), lr=opt.dec_lr, betas=(opt.beta1, 0.999))
-optimizer_center   = optim.Adam(center_criterion.parameters(), lr=opt.lr,betas=(opt.beta1, 0.999))
 
 def calc_gradient_penalty(netD,real_data, fake_data, input_att):
     alpha = torch.rand(opt.batch_size, 1)
@@ -355,7 +382,7 @@ for epoch in range(0,opt.nepoch):
                 'optimizerFR': optimizerFR.state_dict(),
                 'best_gzsl_acc': best_gzsl_acc,
                 'opt': opt,
-            }, filename=os.path.join(opt.result_root, opt.dataset, 'checkpoint_best.pth.tar'))
+            }, filename=os.path.join(opt.result_root, opt.dataset, f'checkpoint_best_{epoch}.pth.tar'))
     print('GZSL: seen=%.3f, unseen=%.3f, h=%.3f' % (gzsl_cls.acc_seen, gzsl_cls.acc_unseen, gzsl_cls.H),end=" ")
         
     if epoch % 10 == 0:
