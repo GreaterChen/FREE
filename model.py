@@ -56,6 +56,7 @@ class Generator(nn.Module):
 
     def forward(self, z, c=None):
         z = torch.cat((z, c), dim=-1)
+        
         x1 = self.lrelu(self.fc1(z))
         x = self.sigmoid(self.fc3(x1))
         self.out = x1

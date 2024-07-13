@@ -25,6 +25,7 @@ from config import opt
 import time
 import classifier_cls as classifier2
 from center_loss import TripCenterLoss_min_margin,TripCenterLoss_margin
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 
 if opt.manualSeed is None:
@@ -47,6 +48,8 @@ if opt.dataset in ['CUB','FLO']:
 elif opt.dataset in ['AWA1','AWA2', 'APY']:
     center_criterion = TripCenterLoss_min_margin(num_classes=opt.nclass_seen, feat_dim=opt.attSize, use_gpu=opt.cuda)
 elif opt.dataset in ['SUN']:
+    center_criterion = TripCenterLoss_margin(num_classes=opt.nclass_seen, feat_dim=opt.attSize, use_gpu=opt.cuda)
+elif opt.dataset in ['ZDFY']:
     center_criterion = TripCenterLoss_margin(num_classes=opt.nclass_seen, feat_dim=opt.attSize, use_gpu=opt.cuda)
 else:
     raise ValueError('Dataset %s is not supported'%(opt.dataset))
@@ -88,11 +91,12 @@ if opt.cuda:
     input_label=input_label.cuda()
 
 def loss_fn(recon_x, x, mean, log_var):
-    BCE = torch.nn.functional.binary_cross_entropy(recon_x+1e-12, x.detach(),reduction='sum')
-    BCE = BCE.sum()/ x.size(0)
+    # BCE = torch.nn.functional.binary_cross_entropy(recon_x+1e-12, x.detach(),reduction='sum')
+    # BCE = BCE.sum()/ x.size(0)
+    MSE = torch.nn.functional.mse_loss(recon_x, x.detach(), reduction='sum') / x.size(0)
     KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())/ x.size(0)
     #return (KLD)
-    return (BCE + KLD)
+    return (MSE + KLD)
            
 def sample():
     batch_feature, batch_label, batch_att = data.next_seen_batch(opt.batch_size)
@@ -107,7 +111,7 @@ def WeightedL1(pred, gt):
     return loss.sum()/loss.size(0)
     
 def generate_syn_feature(generator,classes, attribute,num):
-    nclass = classes.size(0)
+    nclass = len(classes)
     syn_feature = torch.FloatTensor(nclass*num, opt.resSize)
     syn_label = torch.LongTensor(nclass*num) 
     syn_att = torch.FloatTensor(num, opt.attSize)
@@ -198,9 +202,6 @@ def save_checkpoint(state, filename='checkpoint.pth.tar'):
 
 
 if not os.path.exists(os.path.join(opt.result_root, opt.dataset)):
-    print(opt.result_root)
-    print(opt.dataset)
-    print(os.path.join(opt.result_root, opt.dataset))
     os.makedirs(os.path.join(opt.result_root, opt.dataset))
 
 best_gzsl_acc = 0

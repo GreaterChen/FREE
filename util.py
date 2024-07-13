@@ -4,6 +4,8 @@
 #######################
 
 #import h5py
+import json
+import os
 import numpy as np
 import scipy.io as sio
 import torch
@@ -24,16 +26,79 @@ def weights_init(m):
 
 def map_label(label, classes):
     mapped_label = torch.LongTensor(label.size())
-    for i in range(classes.size(0)):
+    for i in range(len(classes)):
         mapped_label[label==classes[i]] = i    
 
     return mapped_label
 
 class DATA_LOADER(object):
     def __init__(self, opt):
-        self.read_matdataset(opt)
+        self.read_turmor(opt)
+        # self.read_matdataset(opt)
         self.index_in_epoch = 0
         self.epochs_completed = 0
+        
+    def read_turmor(self, opt):
+        self.train_class = [1, 2]
+
+        # 加载训练特征和标签并转换为 Tensor
+        self.train_feature = np.load(os.path.join(opt.dataroot, 'resnet101', 'train_features.npy'))  # (606, 2048)
+        self.train_label = np.load(os.path.join(opt.dataroot, 'resnet101', 'train_targets.npy'))
+        self.train_feature = torch.tensor(self.train_feature, dtype=torch.float32)
+        self.train_label = torch.tensor(self.train_label, dtype=torch.long)
+
+        self.ntrain = self.train_feature.shape[0]
+        self.ntrain_class = 2
+        self.ntest_class = 1
+
+        # 加载测试特征和标签并转换为 Tensor
+        self.test_feature = np.load(os.path.join(opt.dataroot, 'resnet101', 'valid_features.npy'))  # (171, 2048)
+        self.test_label = np.load(os.path.join(opt.dataroot, 'resnet101', 'valid_targets.npy'))
+        self.test_feature = torch.tensor(self.test_feature, dtype=torch.float32)
+        self.test_label = torch.tensor(self.test_label, dtype=torch.long)
+
+        # 加载属性嵌入并转换为 Tensor
+        file_path = os.path.join(opt.dataroot, 'att', 'embeddings.json')
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+
+        attribute = {}
+        for key, value in data.items():
+            attribute[key] = np.array(value)
+
+        categories = list(attribute.keys())
+        embedding_list = [attribute[category] for category in categories]
+        self.attribute = torch.tensor(np.array(embedding_list), dtype=torch.float32)
+
+        self.allclasses = [0, 1, 2]
+        self.seenclasses = [1, 2]
+        self.unseenclasses = [0]
+        self.attribute_seen = self.attribute[self.seenclasses, :]
+
+        # 提取标签为 1 和 2 的测试数据
+        indices_seen = (self.test_label == 1) | (self.test_label == 2)
+        self.test_seen_feature = self.test_feature[indices_seen]
+        self.test_seen_label = self.test_label[indices_seen]
+
+        # 提取标签为 0 的测试数据
+        indices_unseen = self.test_label == 0
+        self.test_unseen_feature = self.test_feature[indices_unseen]
+        self.test_unseen_label = self.test_label[indices_unseen]
+
+        # 计算每个类别的样本数量
+        self.train_samples_class_index = torch.tensor([self.train_label.eq(i_class).sum().float() for i_class in self.train_class])
+
+        # 打印结果以确认
+        print("训练集特征形状:", self.train_feature.shape)
+        print("训练集标签形状:", self.train_label.shape)
+        print("测试集特征形状:", self.test_feature.shape)
+        print("测试集标签形状:", self.test_label.shape)
+        print("提取的测试集特征形状 (seen):", self.test_seen_feature.shape)
+        print("提取的测试集标签形状 (seen):", self.test_seen_label.shape)
+        print("提取的测试集特征形状 (unseen):", self.test_unseen_feature.shape)
+        print("提取的测试集标签形状 (unseen):", self.test_unseen_label.shape)
+        print("每个类别的样本数量:", self.train_samples_class_index)
+     
 
     def read_matdataset(self, opt):
         matcontent = sio.loadmat(opt.dataroot + "/" + opt.dataset + "/" + opt.image_embedding + ".mat")
@@ -116,6 +181,18 @@ class DATA_LOADER(object):
         self.allclasses = torch.arange(0, self.ntrain_class+self.ntest_class).long()
         self.train_mapped_label = map_label(self.train_label, self.seenclasses)
         #print("***********",self.ntrain_class,self.ntest_class)
+        
+        
+        # 打印结果以确认
+        print("训练集特征形状:", self.train_feature.shape)
+        print("训练集标签形状:", self.train_label.shape)
+        # print("测试集特征形状:", self.test_feature.shape)
+        # print("测试集标签形状:", self.test_label.shape)
+        print("提取的测试集特征形状 (seen):", self.test_seen_feature.shape)
+        print("提取的测试集标签形状 (seen):", self.test_seen_label.shape)
+        print("提取的测试集特征形状 (unseen):", self.test_unseen_feature.shape)
+        print("提取的测试集标签形状 (unseen):", self.test_unseen_label.shape)
+        # print("每个类别的样本数量:", self.train_samples_class_index)
     def next_seen_batch(self, seen_batch):
         idx = torch.randperm(self.ntrain)[0:seen_batch]
         batch_feature = self.train_feature[idx]
