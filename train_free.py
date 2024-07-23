@@ -49,7 +49,7 @@ elif opt.dataset in ['AWA1','AWA2', 'APY']:
     center_criterion = TripCenterLoss_min_margin(num_classes=opt.nclass_seen, feat_dim=opt.attSize, use_gpu=opt.cuda)
 elif opt.dataset in ['SUN']:
     center_criterion = TripCenterLoss_margin(num_classes=opt.nclass_seen, feat_dim=opt.attSize, use_gpu=opt.cuda)
-elif opt.dataset in ['ZDFY']:
+elif opt.dataset in ['ZDFY', 'ADNI']:
     center_criterion = TripCenterLoss_margin(num_classes=opt.nclass_seen, feat_dim=opt.attSize, use_gpu=opt.cuda)
 else:
     raise ValueError('Dataset %s is not supported'%(opt.dataset))
@@ -58,7 +58,6 @@ netE = model.Encoder(opt)
 netG = model.Generator(opt)
 netD = model.Discriminator(opt)
 
- 
 netFR = model.FR(opt, opt.attSize)
 
 print(netE)

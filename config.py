@@ -5,8 +5,8 @@
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', default='ZDFY', help='FLO')
-parser.add_argument('--dataroot', default='/home/LAB/chenlb24/ZhengDaFuyi', help='path to dataset')
+parser.add_argument('--dataset', default='ADNI', help='FLO')
+parser.add_argument('--dataroot', default='/home/LAB/chenlb24/ADNI', help='path to dataset')
 parser.add_argument('--image_embedding', default='res101')
 parser.add_argument('--class_embedding', default='att')
 parser.add_argument('--syn_num', type=int, default=700, help='number features to generate per class')
