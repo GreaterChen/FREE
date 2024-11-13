@@ -113,9 +113,54 @@ class CLASSIFIER:
                 self.optimizer.step()
             acc_seen = 0
             acc_unseen = 0
-            acc_seen = self.val_gzsl(self.test_seen_feature, self.test_seen_label, self.seenclasses)
-            acc_unseen = self.val_gzsl(self.test_unseen_feature, self.test_unseen_label, self.unseenclasses)
+            acc_seen, probs_seen = self.val_gzsl(self.test_seen_feature, self.test_seen_label, self.seenclasses)
+            acc_unseen, probs_unseen = self.val_gzsl(self.test_unseen_feature, self.test_unseen_label, self.unseenclasses)
             H = 2*acc_seen*acc_unseen / (acc_seen+acc_unseen)
+
+
+            with open(f'/home/chenlb/compare_model/FREE/result/APTOS/h_{H}_unseen_{acc_unseen}_seen_{acc_seen}_{epoch}', 'w', newline='') as csvfile:
+                import csv
+                fieldnames = ['class_0', 'class_1', 'class_2', 'class_3', 'class_4', 'true_label', 'predicted_label']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                
+                # 写入列名
+                writer.writeheader()
+                
+                # 遍历 probs_seen 和 test_seen_label
+
+                for prob, true_label in zip(probs_seen[0], self.test_seen_label):
+                    # 获取每个样本的各类别概率和预测标签
+                    predicted_label = np.argmax(prob)
+                    
+                    # 写入当前样本的所有数据
+                    writer.writerow({
+                        'class_0': prob[0],
+                        'class_1': prob[1],
+                        'class_2': prob[2],
+                        'class_3': prob[3],
+                        'class_4': prob[4],
+                        'true_label': int(true_label),
+                        'predicted_label': int(predicted_label)
+                    })
+                
+                # 遍历 probs_unseen 和 test_unseen_label
+                for prob, true_label in zip(probs_unseen[0], self.test_unseen_label):
+                    # 获取每个样本的各类别概率和预测标签
+                    predicted_label = np.argmax(prob)
+                    
+                    # 写入当前样本的所有数据
+                    writer.writerow({
+                        'class_0': prob[0],
+                        'class_1': prob[1],
+                        'class_2': prob[2],
+                        'class_3': prob[3],
+                        'class_4': prob[4],
+                        'true_label': int(true_label),
+                        'predicted_label': int(predicted_label)
+                    })
+
+            
+
             if H > best_H:
                 best_seen = acc_seen
                 best_unseen = acc_unseen
@@ -163,6 +208,7 @@ class CLASSIFIER:
         start = 0
         ntest = test_X.size()[0]
         predicted_label = torch.LongTensor(test_label.size())
+        outputs = []
         for i in range(0, ntest, self.batch_size):
             end = min(ntest, start+self.batch_size)
             if self.cuda:
@@ -172,11 +218,13 @@ class CLASSIFIER:
                 with torch.no_grad():
                     inputX = Variable(test_X[start:end])
             output = self.model(inputX)  
+            # 转化为cpu的numpy
+            outputs.append(output.cpu().detach().numpy())
             _, predicted_label[start:end] = torch.max(output.data, 1)
             start = end
 
         acc = self.compute_per_class_acc_gzsl(test_label, predicted_label, target_classes)
-        return acc
+        return acc, outputs
 
     def compute_per_class_acc_gzsl(self, test_label, predicted_label, target_classes):
         acc_per_class = 0
